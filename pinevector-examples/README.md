@@ -1,16 +1,31 @@
-# Pinevector Examples
+# PineVector Pine Script Examples
 
-A focused Pine Script portfolio structure for freelancing demonstrations.
+This repository contains example Pine Script indicators and trading strategies built for TradingView.
 
-## Structure
+The goal of this project is to demonstrate different Pine Script implementations including:
 
-- `indicators/`: standalone indicator scripts
-- `strategies/`: backtest-ready strategy scripts
-- `systems/`: multi-signal combined systems
-- `utilities/`: reusable helper modules and filters
-- `alerts/`: reusable alertcondition templates
+- Custom indicators
+- Trading strategies
+- Alert systems
+- Multi-indicator trading logic
+- Strategy backtesting
+- Risk management techniques
 
-## Notes
+Project Structure
 
-- All scripts use Pine Script v5.
-- Keep examples practical, short, and easy to customize per client requirement.
+indicators
+Examples of custom TradingView indicators.
+
+strategies
+Trading strategies that can be tested using the TradingView strategy tester.
+
+systems
+Examples of combining multiple indicators into a single trading system.
+
+utilities
+Reusable Pine Script modules and tools.
+
+alerts
+Examples of implementing TradingView alert conditions.
+
+These scripts are designed as educational examples and starting points for building custom Pine Script systems.
