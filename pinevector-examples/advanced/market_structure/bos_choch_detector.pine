@@ -1,0 +1,82 @@
+//@version=5
+// PineVector Advanced Example: BOS/CHOCH Detector
+// Category: Market Structure
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector BOS / CHOCH Detector", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// Inputs
+pivotGroup = "Pivot Settings"
+extLeft = input.int(8, "External Pivot Left", minval=1, group=pivotGroup, tooltip="Bars to the left for external swing pivots.")
+extRight = input.int(8, "External Pivot Right", minval=1, group=pivotGroup, tooltip="Bars to the right for external swing pivots.")
+showInternal = input.bool(true, "Show Internal Structure", group=pivotGroup, tooltip="Displays smaller internal pivots.")
+intLeft = input.int(3, "Internal Pivot Left", minval=1, group=pivotGroup, tooltip="Bars to the left for internal pivots.")
+intRight = input.int(3, "Internal Pivot Right", minval=1, group=pivotGroup, tooltip="Bars to the right for internal pivots.")
+
+visualGroup = "Visual"
+showLabels = input.bool(true, "Show BOS/CHOCH Labels", group=visualGroup, tooltip="Toggle structure event labels.")
+showLines = input.bool(true, "Draw Break Lines", group=visualGroup, tooltip="Draws break lines from swing to break bar.")
+bullColor = input.color(color.new(color.green, 0), "Bull Color", group=visualGroup)
+bearColor = input.color(color.new(color.red, 0), "Bear Color", group=visualGroup)
+
+// External pivot tracking
+extPivotHigh = ta.pivothigh(high, extLeft, extRight)
+extPivotLow = ta.pivotlow(low, extLeft, extRight)
+
+var float extHigh = na
+var float extLow = na
+var int extHighIdx = na
+var int extLowIdx = na
+var int trendState = 0 // 1 bullish, -1 bearish, 0 unknown
+
+if not na(extPivotHigh)
+    extHigh := extPivotHigh
+    extHighIdx := bar_index - extRight
+
+if not na(extPivotLow)
+    extLow := extPivotLow
+    extLowIdx := bar_index - extRight
+
+bullBreak = not na(extHigh) and ta.crossover(close, extHigh)
+bearBreak = not na(extLow) and ta.crossunder(close, extLow)
+
+bullBOS = false
+bearBOS = false
+bullCHOCH = false
+bearCHOCH = false
+
+if bullBreak
+    bullCHOCH := trendState == -1
+    bullBOS := trendState != -1
+    trendState := 1
+    if showLines and not na(extHighIdx)
+        line.new(extHighIdx, extHigh, bar_index, extHigh, color=bullCHOCH ? color.new(bullColor, 0) : color.new(bullColor, 35), width=2)
+    if showLabels
+        label.new(bar_index, high, bullCHOCH ? "CHOCH↑" : "BOS↑", style=label.style_label_up, textcolor=color.white, color=bullCHOCH ? color.new(color.teal, 0) : bullColor)
+
+if bearBreak
+    bearCHOCH := trendState == 1
+    bearBOS := trendState != 1
+    trendState := -1
+    if showLines and not na(extLowIdx)
+        line.new(extLowIdx, extLow, bar_index, extLow, color=bearCHOCH ? color.new(bearColor, 0) : color.new(bearColor, 35), width=2)
+    if showLabels
+        label.new(bar_index, low, bearCHOCH ? "CHOCH↓" : "BOS↓", style=label.style_label_down, textcolor=color.white, color=bearCHOCH ? color.new(color.orange, 0) : bearColor)
+
+// Internal pivots (optional)
+intPivotHigh = ta.pivothigh(high, intLeft, intRight)
+intPivotLow = ta.pivotlow(low, intLeft, intRight)
+
+plotshape(showInternal and not na(intPivotHigh), title="Internal High", style=shape.circle, location=location.abovebar, color=color.new(color.gray, 35), size=size.tiny, offset=-intRight)
+plotshape(showInternal and not na(intPivotLow), title="Internal Low", style=shape.circle, location=location.belowbar, color=color.new(color.gray, 35), size=size.tiny, offset=-intRight)
+
+plot(extHigh, "External Swing High", color=color.new(color.green, 75), style=plot.style_linebr)
+plot(extLow, "External Swing Low", color=color.new(color.red, 75), style=plot.style_linebr)
+
+alertcondition(bullBOS, title="Bullish BOS", message="PineVector BOS/CHOCH: Bullish BOS on {{ticker}} at {{close}}")
+alertcondition(bearBOS, title="Bearish BOS", message="PineVector BOS/CHOCH: Bearish BOS on {{ticker}} at {{close}}")
+alertcondition(bullCHOCH, title="Bullish CHOCH", message="PineVector BOS/CHOCH: Bullish CHOCH on {{ticker}} at {{close}}")
+alertcondition(bearCHOCH, title="Bearish CHOCH", message="PineVector BOS/CHOCH: Bearish CHOCH on {{ticker}} at {{close}}")

@@ -1,0 +1,71 @@
+//@version=5
+// PineVector Advanced Example: Liquidity Sweep Detector
+// Category: SMC
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector Liquidity Sweep Detector", overlay=true, max_labels_count=300)
+
+// Inputs
+liqGroup = "Liquidity Settings"
+pivotLen = input.int(6, "Pivot Length", minval=2, group=liqGroup, tooltip="Length for equal high/low pivot detection.")
+tolerancePct = input.float(0.05, "Equal Level Tolerance %", minval=0.001, step=0.01, group=liqGroup, tooltip="Tolerance used to classify equal highs/lows.")
+requireConfirm = input.bool(true, "Require Confirmation Candle", group=liqGroup, tooltip="Requires next bar confirmation after sweep.")
+
+visGroup = "Visual"
+showEqLevels = input.bool(true, "Show Equal Levels", group=visGroup)
+
+pH = ta.pivothigh(high, pivotLen, pivotLen)
+pL = ta.pivotlow(low, pivotLen, pivotLen)
+
+var float lastPivotHigh = na
+var float lastPivotLow = na
+var float eqHighLevel = na
+var float eqLowLevel = na
+var int pendingHighSweepBar = na
+var int pendingLowSweepBar = na
+
+if not na(pH)
+    if not na(lastPivotHigh)
+        isEqualHigh = math.abs(pH - lastPivotHigh) / lastPivotHigh * 100 <= tolerancePct
+        if isEqualHigh
+            eqHighLevel := (pH + lastPivotHigh) / 2.0
+    lastPivotHigh := pH
+
+if not na(pL)
+    if not na(lastPivotLow)
+        isEqualLow = math.abs(pL - lastPivotLow) / lastPivotLow * 100 <= tolerancePct
+        if isEqualLow
+            eqLowLevel := (pL + lastPivotLow) / 2.0
+    lastPivotLow := pL
+
+highSweep = not na(eqHighLevel) and high > eqHighLevel and close < eqHighLevel
+lowSweep = not na(eqLowLevel) and low < eqLowLevel and close > eqLowLevel
+
+if highSweep
+    pendingHighSweepBar := bar_index
+if lowSweep
+    pendingLowSweepBar := bar_index
+
+highConfirmed = false
+lowConfirmed = false
+
+if requireConfirm
+    highConfirmed := not na(pendingHighSweepBar) and bar_index == pendingHighSweepBar + 1 and close < open
+    lowConfirmed := not na(pendingLowSweepBar) and bar_index == pendingLowSweepBar + 1 and close > open
+else
+    highConfirmed := highSweep
+    lowConfirmed := lowSweep
+
+if highConfirmed
+    label.new(bar_index, high, "Sweep High", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+if lowConfirmed
+    label.new(bar_index, low, "Sweep Low", style=label.style_label_up, color=color.new(color.green, 0), textcolor=color.white)
+
+plot(showEqLevels ? eqHighLevel : na, "Equal High Level", color=color.new(color.red, 35), style=plot.style_linebr)
+plot(showEqLevels ? eqLowLevel : na, "Equal Low Level", color=color.new(color.green, 35), style=plot.style_linebr)
+
+alertcondition(highSweep or lowSweep, title="Liquidity Sweep Detected", message="PineVector Liquidity Sweep: Sweep detected on {{ticker}}")
+alertcondition(highConfirmed or lowConfirmed, title="Confirmed Liquidity Sweep", message="PineVector Liquidity Sweep: Confirmed sweep on {{ticker}}")

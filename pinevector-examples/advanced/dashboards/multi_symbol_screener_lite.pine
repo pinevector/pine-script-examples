@@ -1,0 +1,51 @@
+//@version=5
+// PineVector Advanced Example: Multi-Symbol Screener Lite
+// Category: Dashboard
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector Multi-Symbol Screener Lite", overlay=false, dynamic_requests=true)
+
+// Inputs
+scrGroup = "Screener Inputs"
+symbolsCsv = input.string("BINANCE:BTCUSDT,BINANCE:ETHUSDT,BINANCE:SOLUSDT,BINANCE:BNBUSDT,FOREXCOM:SPXUSD,NASDAQ:AAPL,NASDAQ:MSFT,NASDAQ:NVDA,FX:EURUSD,FX:GBPUSD", "Symbols (comma-separated)", group=scrGroup, tooltip="Enter 10-20 symbols separated by commas.")
+maxSymbols = input.int(15, "Max Symbols", minval=5, maxval=20, group=scrGroup)
+fastLen = input.int(20, "Fast EMA", minval=1, group=scrGroup)
+slowLen = input.int(50, "Slow EMA", minval=1, group=scrGroup)
+
+rawList = str.split(symbolsCsv, ",")
+rows = math.min(array.size(rawList), maxSymbols)
+
+var table screen = table.new(position.top_right, 4, 21, border_width=1)
+
+if barstate.islast
+    table.cell(screen, 0, 0, "Symbol", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(screen, 1, 0, "Trend", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(screen, 2, 0, "Last Sig Age", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(screen, 3, 0, "Signal", bgcolor=color.new(color.black, 0), text_color=color.white)
+
+anyTrigger = false
+
+for i = 0 to rows - 1
+    symRaw = array.get(rawList, i)
+    sym = str.trim(symRaw)
+
+    trendUp = request.security(sym, timeframe.period, ta.ema(close, fastLen) > ta.ema(close, slowLen), barmerge.gaps_off, barmerge.lookahead_off)
+    buyTrig = request.security(sym, timeframe.period, ta.crossover(ta.ema(close, fastLen), ta.ema(close, slowLen)), barmerge.gaps_off, barmerge.lookahead_off)
+    sellTrig = request.security(sym, timeframe.period, ta.crossunder(ta.ema(close, fastLen), ta.ema(close, slowLen)), barmerge.gaps_off, barmerge.lookahead_off)
+    sigAge = request.security(sym, timeframe.period, ta.barssince(ta.crossover(ta.ema(close, fastLen), ta.ema(close, slowLen)) or ta.crossunder(ta.ema(close, fastLen), ta.ema(close, slowLen))), barmerge.gaps_off, barmerge.lookahead_off)
+
+    sigTxt = buyTrig ? "BUY" : sellTrig ? "SELL" : "-"
+    trendTxt = trendUp ? "UP" : "DOWN"
+
+    anyTrigger := anyTrigger or buyTrig or sellTrig
+
+    if barstate.islast
+        table.cell(screen, 0, i + 1, sym)
+        table.cell(screen, 1, i + 1, trendTxt, text_color=trendUp ? color.lime : color.red)
+        table.cell(screen, 2, i + 1, na(sigAge) ? "n/a" : str.tostring(sigAge))
+        table.cell(screen, 3, i + 1, sigTxt, text_color=buyTrig ? color.lime : sellTrig ? color.red : color.gray)
+
+alertcondition(anyTrigger, title="Any Screener Trigger", message="PineVector Screener: At least one symbol triggered a signal.")

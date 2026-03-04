@@ -1,0 +1,115 @@
+//@version=5
+// PineVector Advanced Example: Order Block Pivot-Based Approximation
+// Category: SMC
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector Order Block (Pivot Approx)", overlay=true, max_boxes_count=300)
+
+// Inputs
+obGroup = "OB Settings"
+lookbackBreak = input.int(20, "Breakout Lookback", minval=5, group=obGroup, tooltip="Bars used to define impulse break context.")
+searchBars = input.int(12, "Search Last Opposite Candle", minval=2, group=obGroup, tooltip="How far back to find opposite candle before impulse.")
+atrLen = input.int(14, "ATR Length", minval=1, group=obGroup)
+atrImpulseMult = input.float(1.0, "Impulse ATR Multiplier", minval=0.1, step=0.1, group=obGroup, tooltip="Break candle range must exceed ATR * multiplier.")
+maxObs = input.int(40, "Max OB Zones", minval=10, maxval=150, group=obGroup)
+
+visGroup = "Visual"
+bullObColor = input.color(color.new(color.green, 84), "Bull OB Color", group=visGroup)
+bearObColor = input.color(color.new(color.red, 84), "Bear OB Color", group=visGroup)
+mitigatedColor = input.color(color.new(color.blue, 86), "Mitigated Color", group=visGroup)
+
+atr = ta.atr(atrLen)
+impulseOk = (high - low) > (atr * atrImpulseMult)
+
+bullBreak = close > ta.highest(high[1], lookbackBreak) and impulseOk
+bearBreak = close < ta.lowest(low[1], lookbackBreak) and impulseOk
+
+var box[] obBoxes = array.new_box()
+var float[] obTop = array.new_float()
+var float[] obBottom = array.new_float()
+var int[] obDir = array.new_int() // 1 bull, -1 bear
+var bool[] obMitigated = array.new_bool()
+
+obCreated = false
+obMitigatedEvent = false
+obInvalidated = false
+
+if bullBreak
+    found = false
+    top = na
+    bot = na
+    startIdx = na
+    for i = 1 to searchBars
+        if close[i] < open[i] and not found
+            top := open[i]
+            bot := low[i]
+            startIdx := bar_index - i
+            found := true
+    if found
+        b = box.new(startIdx, top, bar_index, bot, extend=extend.right, bgcolor=bullObColor, border_color=color.new(color.green, 0))
+        array.push(obBoxes, b)
+        array.push(obTop, top)
+        array.push(obBottom, bot)
+        array.push(obDir, 1)
+        array.push(obMitigated, false)
+        obCreated := true
+
+if bearBreak
+    found = false
+    top = na
+    bot = na
+    startIdx = na
+    for i = 1 to searchBars
+        if close[i] > open[i] and not found
+            top := high[i]
+            bot := open[i]
+            startIdx := bar_index - i
+            found := true
+    if found
+        b = box.new(startIdx, top, bar_index, bot, extend=extend.right, bgcolor=bearObColor, border_color=color.new(color.red, 0))
+        array.push(obBoxes, b)
+        array.push(obTop, top)
+        array.push(obBottom, bot)
+        array.push(obDir, -1)
+        array.push(obMitigated, false)
+        obCreated := true
+
+if array.size(obBoxes) > maxObs
+    old = array.shift(obBoxes)
+    box.delete(old)
+    array.shift(obTop)
+    array.shift(obBottom)
+    array.shift(obDir)
+    array.shift(obMitigated)
+
+for i = 0 to array.size(obBoxes) - 1
+    b = array.get(obBoxes, i)
+    top = array.get(obTop, i)
+    bot = array.get(obBottom, i)
+    dir = array.get(obDir, i)
+    mitigated = array.get(obMitigated, i)
+
+    box.set_right(b, bar_index)
+
+    touched = high >= bot and low <= top
+    if not mitigated and touched
+        mitigated := true
+        obMitigatedEvent := true
+
+    invalid = dir == 1 ? close < bot : close > top
+    if invalid
+        obInvalidated := true
+
+    array.set(obMitigated, i, mitigated)
+
+    zoneColor = mitigated ? mitigatedColor : (dir == 1 ? bullObColor : bearObColor)
+    borderColor = dir == 1 ? color.new(color.green, 0) : color.new(color.red, 0)
+    box.set_bgcolor(b, zoneColor)
+    box.set_border_color(b, borderColor)
+
+alertcondition(obCreated, title="Order Block Created", message="PineVector OB: New order block created on {{ticker}}")
+alertcondition(obMitigatedEvent, title="Order Block Mitigated", message="PineVector OB: Order block mitigated on {{ticker}}")
+alertcondition(obInvalidated, title="Order Block Invalidated", message="PineVector OB: Order block invalidated on {{ticker}}")

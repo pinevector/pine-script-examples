@@ -1,0 +1,129 @@
+//@version=5
+// PineVector Advanced Example: Parameter Sweep Harness Lite
+// Category: Research
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector Parameter Sweep Harness Lite", overlay=false)
+
+// Inputs
+resGroup = "Research Settings"
+setA_fast = input.int(10, "Set A Fast", minval=2, group=resGroup)
+setA_slow = input.int(30, "Set A Slow", minval=5, group=resGroup)
+setB_fast = input.int(14, "Set B Fast", minval=2, group=resGroup)
+setB_slow = input.int(40, "Set B Slow", minval=5, group=resGroup)
+setC_fast = input.int(20, "Set C Fast", minval=2, group=resGroup)
+setC_slow = input.int(55, "Set C Slow", minval=5, group=resGroup)
+
+var string[] names = array.new_string()
+var int[] fasts = array.new_int()
+var int[] slows = array.new_int()
+var int[] pos = array.new_int()
+var float[] entry = array.new_float()
+var float[] net = array.new_float()
+var float[] peak = array.new_float()
+var float[] maxdd = array.new_float()
+var int[] trades = array.new_int()
+var int[] wins = array.new_int()
+var float[] gp = array.new_float()
+var float[] gl = array.new_float()
+
+if barstate.isfirst
+    array.push(names, "Set A")
+    array.push(names, "Set B")
+    array.push(names, "Set C")
+
+    array.push(fasts, setA_fast)
+    array.push(fasts, setB_fast)
+    array.push(fasts, setC_fast)
+
+    array.push(slows, setA_slow)
+    array.push(slows, setB_slow)
+    array.push(slows, setC_slow)
+
+    for _ = 0 to 2
+        array.push(pos, 0)
+        array.push(entry, na)
+        array.push(net, 0.0)
+        array.push(peak, 0.0)
+        array.push(maxdd, 0.0)
+        array.push(trades, 0)
+        array.push(wins, 0)
+        array.push(gp, 0.0)
+        array.push(gl, 0.0)
+
+for i = 0 to array.size(names) - 1
+    f = array.get(fasts, i)
+    s = array.get(slows, i)
+    fastMa = ta.ema(close, f)
+    slowMa = ta.ema(close, s)
+    longSig = ta.crossover(fastMa, slowMa)
+    shortSig = ta.crossunder(fastMa, slowMa)
+
+    p = array.get(pos, i)
+    e = array.get(entry, i)
+    n = array.get(net, i)
+    t = array.get(trades, i)
+    w = array.get(wins, i)
+    gProfit = array.get(gp, i)
+    gLoss = array.get(gl, i)
+
+    if (longSig or shortSig) and p != 0 and not na(e)
+        pnl = (close - e) * p
+        n += pnl
+        t += 1
+        if pnl > 0
+            w += 1
+            gProfit += pnl
+        else
+            gLoss += math.abs(pnl)
+
+    if longSig
+        p := 1
+        e := close
+    else if shortSig
+        p := -1
+        e := close
+
+    pk = math.max(array.get(peak, i), n)
+    dd = pk - n
+    mdd = math.max(array.get(maxdd, i), dd)
+
+    array.set(pos, i, p)
+    array.set(entry, i, e)
+    array.set(net, i, n)
+    array.set(trades, i, t)
+    array.set(wins, i, w)
+    array.set(gp, i, gProfit)
+    array.set(gl, i, gLoss)
+    array.set(peak, i, pk)
+    array.set(maxdd, i, mdd)
+
+var table researchTable = table.new(position.top_right, 6, 4, border_width=1)
+if barstate.islast
+    table.cell(researchTable, 0, 0, "Set", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(researchTable, 1, 0, "Net", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(researchTable, 2, 0, "MaxDD", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(researchTable, 3, 0, "Win%", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(researchTable, 4, 0, "PF", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(researchTable, 5, 0, "Trades", bgcolor=color.new(color.black, 0), text_color=color.white)
+
+    for i = 0 to array.size(names) - 1
+        nm = array.get(names, i)
+        n = array.get(net, i)
+        mdd = array.get(maxdd, i)
+        t = array.get(trades, i)
+        w = array.get(wins, i)
+        gProfit = array.get(gp, i)
+        gLoss = array.get(gl, i)
+        winRate = t > 0 ? (w * 100.0) / t : na
+        pf = gLoss > 0 ? gProfit / gLoss : na
+
+        table.cell(researchTable, 0, i + 1, nm)
+        table.cell(researchTable, 1, i + 1, str.tostring(n, format.mintick))
+        table.cell(researchTable, 2, i + 1, str.tostring(mdd, format.mintick))
+        table.cell(researchTable, 3, i + 1, na(winRate) ? "n/a" : str.tostring(winRate, "#.##"))
+        table.cell(researchTable, 4, i + 1, na(pf) ? "n/a" : str.tostring(pf, "#.##"))
+        table.cell(researchTable, 5, i + 1, str.tostring(t))

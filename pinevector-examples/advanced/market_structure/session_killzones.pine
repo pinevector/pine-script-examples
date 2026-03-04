@@ -1,0 +1,122 @@
+//@version=5
+// PineVector Advanced Example: Session Killzones Engine
+// Category: Market Structure
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector Session Killzones", overlay=true, max_labels_count=200)
+
+// Inputs
+sessGroup = "Session Settings"
+tz = input.string("Etc/UTC", "Timezone", group=sessGroup, tooltip="Timezone used for session calculations.")
+asiaSession = input.session("0000-0800", "Asia Session", group=sessGroup)
+londonSession = input.session("0700-1200", "London Session", group=sessGroup)
+nySession = input.session("1300-2100", "New York Session", group=sessGroup)
+
+killGroup = "Killzones"
+londonKill = input.session("0700-1000", "London Killzone", group=killGroup)
+nyKill = input.session("1300-1600", "NY Killzone", group=killGroup)
+
+visGroup = "Visual"
+showTable = input.bool(true, "Show Stats Table", group=visGroup)
+
+inAsia = not na(time(timeframe.period, asiaSession, tz))
+inLondon = not na(time(timeframe.period, londonSession, tz))
+inNY = not na(time(timeframe.period, nySession, tz))
+inLondonKill = not na(time(timeframe.period, londonKill, tz))
+inNYKill = not na(time(timeframe.period, nyKill, tz))
+
+bgcolor(inLondonKill ? color.new(color.blue, 88) : na)
+bgcolor(inNYKill ? color.new(color.purple, 88) : na)
+
+var float asiaHigh = na
+var float asiaLow = na
+var float londonHigh = na
+var float londonLow = na
+var float nyHigh = na
+var float nyLow = na
+
+var float asiaAvgRange = na
+var float londonAvgRange = na
+var float nyAvgRange = na
+var float asiaTodayRange = na
+var float londonTodayRange = na
+var float nyTodayRange = na
+
+var int asiaCount = 0
+var int londonCount = 0
+var int nyCount = 0
+
+asiaStart = inAsia and not inAsia[1]
+asiaEnd = not inAsia and inAsia[1]
+londonStart = inLondon and not inLondon[1]
+londonEnd = not inLondon and inLondon[1]
+nyStart = inNY and not inNY[1]
+nyEnd = not inNY and inNY[1]
+
+if asiaStart
+    asiaHigh := high
+    asiaLow := low
+if inAsia
+    asiaHigh := na(asiaHigh) ? high : math.max(asiaHigh, high)
+    asiaLow := na(asiaLow) ? low : math.min(asiaLow, low)
+if asiaEnd and not na(asiaHigh) and not na(asiaLow)
+    asiaTodayRange := asiaHigh - asiaLow
+    asiaCount += 1
+    asiaAvgRange := na(asiaAvgRange) ? asiaTodayRange : ((asiaAvgRange * (asiaCount - 1)) + asiaTodayRange) / asiaCount
+
+if londonStart
+    londonHigh := high
+    londonLow := low
+if inLondon
+    londonHigh := na(londonHigh) ? high : math.max(londonHigh, high)
+    londonLow := na(londonLow) ? low : math.min(londonLow, low)
+if londonEnd and not na(londonHigh) and not na(londonLow)
+    londonTodayRange := londonHigh - londonLow
+    londonCount += 1
+    londonAvgRange := na(londonAvgRange) ? londonTodayRange : ((londonAvgRange * (londonCount - 1)) + londonTodayRange) / londonCount
+
+if nyStart
+    nyHigh := high
+    nyLow := low
+if inNY
+    nyHigh := na(nyHigh) ? high : math.max(nyHigh, high)
+    nyLow := na(nyLow) ? low : math.min(nyLow, low)
+if nyEnd and not na(nyHigh) and not na(nyLow)
+    nyTodayRange := nyHigh - nyLow
+    nyCount += 1
+    nyAvgRange := na(nyAvgRange) ? nyTodayRange : ((nyAvgRange * (nyCount - 1)) + nyTodayRange) / nyCount
+
+asiaBreak = inAsia and ((not na(asiaHigh[1]) and close > asiaHigh[1]) or (not na(asiaLow[1]) and close < asiaLow[1]))
+londonBreak = inLondon and ((not na(londonHigh[1]) and close > londonHigh[1]) or (not na(londonLow[1]) and close < londonLow[1]))
+nyBreak = inNY and ((not na(nyHigh[1]) and close > nyHigh[1]) or (not na(nyLow[1]) and close < nyLow[1]))
+
+plot(inAsia ? asiaHigh : na, "Asia High", color=color.new(color.green, 65), style=plot.style_linebr)
+plot(inAsia ? asiaLow : na, "Asia Low", color=color.new(color.red, 65), style=plot.style_linebr)
+plot(inLondon ? londonHigh : na, "London High", color=color.new(color.green, 50), style=plot.style_linebr)
+plot(inLondon ? londonLow : na, "London Low", color=color.new(color.red, 50), style=plot.style_linebr)
+plot(inNY ? nyHigh : na, "NY High", color=color.new(color.green, 35), style=plot.style_linebr)
+plot(inNY ? nyLow : na, "NY Low", color=color.new(color.red, 35), style=plot.style_linebr)
+
+alertcondition(asiaStart or londonStart or nyStart, title="Session Start", message="PineVector Session Engine: A tracked session has started on {{ticker}}")
+alertcondition(asiaBreak or londonBreak or nyBreak, title="Session Breakout", message="PineVector Session Engine: Session breakout on {{ticker}}")
+
+var table stats = table.new(position.top_right, 3, 4, border_width=1)
+if barstate.islast and showTable
+    table.cell(stats, 0, 0, "Session", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(stats, 1, 0, "Avg Range", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(stats, 2, 0, "Today", text_color=color.white, bgcolor=color.new(color.black, 0))
+
+    table.cell(stats, 0, 1, "Asia")
+    table.cell(stats, 1, 1, na(asiaAvgRange) ? "n/a" : str.tostring(asiaAvgRange, format.mintick))
+    table.cell(stats, 2, 1, na(asiaTodayRange) ? "n/a" : str.tostring(asiaTodayRange, format.mintick))
+
+    table.cell(stats, 0, 2, "London")
+    table.cell(stats, 1, 2, na(londonAvgRange) ? "n/a" : str.tostring(londonAvgRange, format.mintick))
+    table.cell(stats, 2, 2, na(londonTodayRange) ? "n/a" : str.tostring(londonTodayRange, format.mintick))
+
+    table.cell(stats, 0, 3, "New York")
+    table.cell(stats, 1, 3, na(nyAvgRange) ? "n/a" : str.tostring(nyAvgRange, format.mintick))
+    table.cell(stats, 2, 3, na(nyTodayRange) ? "n/a" : str.tostring(nyTodayRange, format.mintick))

@@ -1,0 +1,89 @@
+//@version=5
+// PineVector Advanced Example: Risk Engine Position Sizing
+// Category: Risk
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+strategy("PineVector Risk Engine", overlay=true, initial_capital=100000, pyramiding=0)
+
+// Inputs
+riskGroup = "Risk Inputs"
+accountSize = input.float(100000, "Account Size", minval=1000, group=riskGroup)
+riskPct = input.float(1.0, "Risk % Per Trade", minval=0.1, step=0.1, group=riskGroup)
+stopMode = input.string("ATR", "Stop Mode", options=["ATR", "Swing"], group=riskGroup, tooltip="ATR = volatility stop, Swing = structure stop.")
+atrLen = input.int(14, "ATR Length", minval=1, group=riskGroup)
+atrMult = input.float(2.0, "ATR Multiplier", minval=0.1, step=0.1, group=riskGroup)
+swingLen = input.int(10, "Swing Length", minval=2, group=riskGroup)
+rrTarget = input.float(2.0, "Target R", minval=0.5, step=0.1, group=riskGroup)
+
+lockGroup = "Daily Lockout"
+enableDailyLock = input.bool(false, "Enable Max Daily Loss Lockout", group=lockGroup)
+maxDailyLossPct = input.float(2.0, "Max Daily Loss %", minval=0.1, step=0.1, group=lockGroup)
+
+sigGroup = "Entry Model"
+fastLen = input.int(21, "Fast EMA", minval=1, group=sigGroup)
+slowLen = input.int(55, "Slow EMA", minval=1, group=sigGroup)
+
+emaFast = ta.ema(close, fastLen)
+emaSlow = ta.ema(close, slowLen)
+longSignal = ta.crossover(emaFast, emaSlow)
+shortSignal = ta.crossunder(emaFast, emaSlow)
+
+atr = ta.atr(atrLen)
+longStopDist = stopMode == "ATR" ? atr * atrMult : math.max(close - ta.lowest(low, swingLen), syminfo.mintick)
+shortStopDist = stopMode == "ATR" ? atr * atrMult : math.max(ta.highest(high, swingLen) - close, syminfo.mintick)
+
+riskCash = accountSize * (riskPct / 100.0)
+longQty = riskCash / longStopDist
+shortQty = riskCash / shortStopDist
+
+newDay = ta.change(dayofmonth(time)) != 0
+var float dayStartNet = na
+if barstate.isfirst
+    dayStartNet := strategy.netprofit
+if newDay
+    dayStartNet := strategy.netprofit
+
+dailyPnL = strategy.netprofit - dayStartNet
+maxDailyLossCash = accountSize * (maxDailyLossPct / 100.0)
+lockout = enableDailyLock and dailyPnL <= -maxDailyLossCash
+
+var float activeRiskPerUnit = na
+var int activeDir = 0
+
+if longSignal and not lockout
+    strategy.entry("Long", strategy.long, qty=longQty)
+    activeRiskPerUnit := longStopDist
+    activeDir := 1
+
+if shortSignal and not lockout
+    strategy.entry("Short", strategy.short, qty=shortQty)
+    activeRiskPerUnit := shortStopDist
+    activeDir := -1
+
+if strategy.position_size > 0 and not na(activeRiskPerUnit)
+    strategy.exit("Long Exit", "Long", stop=strategy.position_avg_price - activeRiskPerUnit, limit=strategy.position_avg_price + activeRiskPerUnit * rrTarget)
+
+if strategy.position_size < 0 and not na(activeRiskPerUnit)
+    strategy.exit("Short Exit", "Short", stop=strategy.position_avg_price + activeRiskPerUnit, limit=strategy.position_avg_price - activeRiskPerUnit * rrTarget)
+
+rNow = strategy.position_size == 0 or na(activeRiskPerUnit) ? na : ((close - strategy.position_avg_price) * activeDir) / activeRiskPerUnit
+
+plot(emaFast, "Fast EMA", color=color.new(color.teal, 0))
+plot(emaSlow, "Slow EMA", color=color.new(color.orange, 0))
+plot(rNow, "Open Trade R", color=color.new(color.purple, 0), display=display.none)
+
+var table riskTable = table.new(position.top_left, 2, 5, border_width=1)
+if barstate.islast
+    table.cell(riskTable, 0, 0, "Metric", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(riskTable, 1, 0, "Value", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(riskTable, 0, 1, "Risk/Trade")
+    table.cell(riskTable, 1, 1, str.tostring(riskCash, format.mintick))
+    table.cell(riskTable, 0, 2, "Daily PnL")
+    table.cell(riskTable, 1, 2, str.tostring(dailyPnL, format.mintick))
+    table.cell(riskTable, 0, 3, "Lockout")
+    table.cell(riskTable, 1, 3, lockout ? "ON" : "OFF")
+    table.cell(riskTable, 0, 4, "Open R")
+    table.cell(riskTable, 1, 4, na(rNow) ? "n/a" : str.tostring(rNow, format.mintick))

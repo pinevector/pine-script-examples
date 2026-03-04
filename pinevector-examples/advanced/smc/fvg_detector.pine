@@ -1,0 +1,106 @@
+//@version=5
+// PineVector Advanced Example: FVG Detector
+// Category: SMC
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector FVG Detector", overlay=true, max_boxes_count=400)
+
+// Inputs
+fvgGroup = "FVG Settings"
+maxFvgs = input.int(80, "Max Active FVGs", minval=10, maxval=200, group=fvgGroup, tooltip="Caps tracked FVG zones to control chart performance.")
+showBull = input.bool(true, "Show Bullish FVG", group=fvgGroup)
+showBear = input.bool(true, "Show Bearish FVG", group=fvgGroup)
+invalidateBars = input.int(0, "Invalidate After X Bars (0 = off)", minval=0, group=fvgGroup, tooltip="Auto-expires old unfilled gaps.")
+
+visGroup = "Visual"
+bullColor = input.color(color.new(color.green, 82), "Bull FVG Color", group=visGroup)
+bearColor = input.color(color.new(color.red, 82), "Bear FVG Color", group=visGroup)
+filledColor = input.color(color.new(color.gray, 88), "Filled Color", group=visGroup)
+
+var box[] fvgBoxes = array.new_box()
+var float[] fvgTop = array.new_float()
+var float[] fvgBottom = array.new_float()
+var int[] fvgCreated = array.new_int()
+var int[] fvgDir = array.new_int() // 1 bull, -1 bear
+var bool[] fvgTouched = array.new_bool()
+var bool[] fvgFilled = array.new_bool()
+
+newBullFvg = false
+newBearFvg = false
+firstTouch = false
+filledEvent = false
+
+bullFvg = showBull and low > high[2]
+bearFvg = showBear and high < low[2]
+
+if bullFvg
+    b = box.new(bar_index - 2, low, bar_index, high[2], bgcolor=bullColor, border_color=color.new(color.green, 0), extend=extend.right)
+    array.push(fvgBoxes, b)
+    array.push(fvgTop, low)
+    array.push(fvgBottom, high[2])
+    array.push(fvgCreated, bar_index)
+    array.push(fvgDir, 1)
+    array.push(fvgTouched, false)
+    array.push(fvgFilled, false)
+    newBullFvg := true
+
+if bearFvg
+    b = box.new(bar_index - 2, low[2], bar_index, high, bgcolor=bearColor, border_color=color.new(color.red, 0), extend=extend.right)
+    array.push(fvgBoxes, b)
+    array.push(fvgTop, low[2])
+    array.push(fvgBottom, high)
+    array.push(fvgCreated, bar_index)
+    array.push(fvgDir, -1)
+    array.push(fvgTouched, false)
+    array.push(fvgFilled, false)
+    newBearFvg := true
+
+if array.size(fvgBoxes) > maxFvgs
+    oldBox = array.shift(fvgBoxes)
+    box.delete(oldBox)
+    array.shift(fvgTop)
+    array.shift(fvgBottom)
+    array.shift(fvgCreated)
+    array.shift(fvgDir)
+    array.shift(fvgTouched)
+    array.shift(fvgFilled)
+
+for i = 0 to array.size(fvgBoxes) - 1
+    b = array.get(fvgBoxes, i)
+    top = array.get(fvgTop, i)
+    bot = array.get(fvgBottom, i)
+    dir = array.get(fvgDir, i)
+    touched = array.get(fvgTouched, i)
+    filled = array.get(fvgFilled, i)
+    created = array.get(fvgCreated, i)
+
+    box.set_right(b, bar_index)
+
+    if not touched and high >= bot and low <= top
+        touched := true
+        firstTouch := true
+
+    isFilled = dir == 1 ? low <= bot : high >= top
+    if not filled and isFilled
+        filled := true
+        filledEvent := true
+
+    expired = invalidateBars > 0 and (bar_index - created) >= invalidateBars
+    if expired and not filled
+        filled := true
+
+    array.set(fvgTouched, i, touched)
+    array.set(fvgFilled, i, filled)
+
+    zoneColor = filled ? filledColor : (dir == 1 ? bullColor : bearColor)
+    borderColor = dir == 1 ? color.new(color.green, 0) : color.new(color.red, 0)
+    box.set_bgcolor(b, zoneColor)
+    box.set_border_color(b, borderColor)
+
+alertcondition(newBullFvg, title="New Bullish FVG", message="PineVector FVG: New bullish FVG on {{ticker}}")
+alertcondition(newBearFvg, title="New Bearish FVG", message="PineVector FVG: New bearish FVG on {{ticker}}")
+alertcondition(firstTouch, title="FVG First Touch", message="PineVector FVG: First touch of an FVG on {{ticker}}")
+alertcondition(filledEvent, title="FVG Filled", message="PineVector FVG: FVG filled on {{ticker}}")

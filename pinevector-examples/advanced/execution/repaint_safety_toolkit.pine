@@ -1,0 +1,54 @@
+//@version=5
+// PineVector Advanced Example: Repaint Safety Toolkit
+// Category: Execution
+// Author: PineVector
+// Purpose: Educational + portfolio demonstration
+// Notes:
+// - This script is a reference implementation and may require tuning per market.
+// - No performance guarantees. Not financial advice.
+indicator("PineVector Repaint Safety Toolkit", overlay=true)
+
+// Inputs
+modeGroup = "Safety Modes"
+strictConfirmed = input.bool(true, "Strict Confirmed-Only Mode", group=modeGroup, tooltip="Signals are allowed only on confirmed bars.")
+useMtf = input.bool(false, "Enable MTF Safety Mode", group=modeGroup, tooltip="Uses request.security with lookahead off for higher timeframe context.")
+mtfTf = input.timeframe("60", "MTF Timeframe", group=modeGroup, tooltip="Higher timeframe used when MTF mode is enabled.")
+
+sigGroup = "Signal Inputs"
+fastLen = input.int(12, "Fast EMA", minval=1, group=sigGroup)
+slowLen = input.int(26, "Slow EMA", minval=1, group=sigGroup)
+showDebug = input.bool(true, "Show Debug Markers", group=sigGroup, tooltip="Plots raw vs finalized signal markers.")
+
+srcFast = useMtf ? request.security(syminfo.tickerid, mtfTf, ta.ema(close, fastLen), barmerge.gaps_off, barmerge.lookahead_off) : ta.ema(close, fastLen)
+srcSlow = useMtf ? request.security(syminfo.tickerid, mtfTf, ta.ema(close, slowLen), barmerge.gaps_off, barmerge.lookahead_off) : ta.ema(close, slowLen)
+
+rawBuy = ta.crossover(srcFast, srcSlow)
+rawSell = ta.crossunder(srcFast, srcSlow)
+
+finalBuy = strictConfirmed ? (rawBuy and barstate.isconfirmed) : rawBuy
+finalSell = strictConfirmed ? (rawSell and barstate.isconfirmed) : rawSell
+
+plot(srcFast, "Fast", color=color.new(color.teal, 0))
+plot(srcSlow, "Slow", color=color.new(color.orange, 0))
+
+plotshape(showDebug and rawBuy, title="Raw Buy", style=shape.circle, color=color.new(color.green, 70), size=size.tiny, location=location.belowbar)
+plotshape(showDebug and rawSell, title="Raw Sell", style=shape.circle, color=color.new(color.red, 70), size=size.tiny, location=location.abovebar)
+plotshape(finalBuy, title="Final Buy", style=shape.labelup, text="BUY", color=color.new(color.green, 0), textcolor=color.white, location=location.belowbar)
+plotshape(finalSell, title="Final Sell", style=shape.labeldown, text="SELL", color=color.new(color.red, 0), textcolor=color.white, location=location.abovebar)
+
+riskScore = 100 - (strictConfirmed ? 35 : 0) - (useMtf ? 20 : 0)
+riskBand = riskScore >= 80 ? "High" : riskScore >= 50 ? "Medium" : "Low"
+
+var table rptTable = table.new(position.bottom_left, 2, 4, border_width=1)
+if barstate.islast
+    table.cell(rptTable, 0, 0, "Repaint Audit", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(rptTable, 1, 0, "State", bgcolor=color.new(color.black, 0), text_color=color.white)
+    table.cell(rptTable, 0, 1, "Strict Confirmed")
+    table.cell(rptTable, 1, 1, strictConfirmed ? "ON" : "OFF")
+    table.cell(rptTable, 0, 2, "MTF Safety")
+    table.cell(rptTable, 1, 2, useMtf ? "ON" : "OFF")
+    table.cell(rptTable, 0, 3, "Risk Score")
+    table.cell(rptTable, 1, 3, str.tostring(riskScore) + " (" + riskBand + ")")
+
+alertcondition(finalBuy, title="Confirmed Buy", message="PineVector Repaint Toolkit: Confirmed BUY on {{ticker}}")
+alertcondition(finalSell, title="Confirmed Sell", message="PineVector Repaint Toolkit: Confirmed SELL on {{ticker}}")
