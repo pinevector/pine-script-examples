@@ -1,27 +1,34 @@
 //@version=5
 strategy("Multi Indicator Trading System", overlay=true, initial_capital=10000, pyramiding=0)
 
-emaLen = input.int(50, "Trend EMA", minval=1)
+emaLen = input.int(50, "EMA Trend Length", minval=1)
 rsiLen = input.int(14, "RSI Length", minval=2)
-macdFast = input.int(12, "MACD Fast", minval=1)
-macdSlow = input.int(26, "MACD Slow", minval=2)
-macdSignal = input.int(9, "MACD Signal", minval=1)
+rsiBull = input.int(55, "RSI Bull Threshold", minval=1, maxval=99)
+rsiBear = input.int(45, "RSI Bear Threshold", minval=1, maxval=99)
+breakoutLen = input.int(20, "Breakout Lookback", minval=2)
 
 emaTrend = ta.ema(close, emaLen)
 rsi = ta.rsi(close, rsiLen)
-[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+highestHigh = ta.highest(high[1], breakoutLen)
+lowestLow = ta.lowest(low[1], breakoutLen)
 
 trendUp = close > emaTrend
 trendDown = close < emaTrend
-momentumUp = rsi > 50 and macdLine > signalLine
-momentumDown = rsi < 50 and macdLine < signalLine
+rsiMomentumUp = rsi > rsiBull
+rsiMomentumDown = rsi < rsiBear
+breakoutUp = close > highestHigh
+breakoutDown = close < lowestLow
 
-longSignal = trendUp and momentumUp
-shortSignal = trendDown and momentumDown
+longSignal = trendUp and rsiMomentumUp and breakoutUp
+shortSignal = trendDown and rsiMomentumDown and breakoutDown
 
 if longSignal and strategy.position_size <= 0
     strategy.entry("Long", strategy.long)
 if shortSignal and strategy.position_size >= 0
     strategy.entry("Short", strategy.short)
 
-plot(emaTrend, "Trend EMA", color=color.new(color.yellow, 0), linewidth=2)
+plot(emaTrend, "EMA Trend", color=color.new(color.yellow, 0), linewidth=2)
+plot(highestHigh, "Breakout High", color=color.new(color.green, 80))
+plot(lowestLow, "Breakout Low", color=color.new(color.red, 80))
+plotshape(longSignal, title="Combined Long", style=shape.triangleup, location=location.belowbar, color=color.new(color.green, 0), size=size.small)
+plotshape(shortSignal, title="Combined Short", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0), size=size.small)

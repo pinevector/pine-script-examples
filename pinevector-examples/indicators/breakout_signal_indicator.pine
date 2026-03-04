@@ -1,18 +1,23 @@
 //@version=5
-indicator("Breakout Signal Indicator", overlay=true)
+indicator("Breakout Signal System", overlay=true)
 
-lookback = input.int(20, "Breakout Lookback", minval=2)
+lookback = input.int(20, "Highest High Lookback", minval=2)
 useVolFilter = input.bool(true, "Use Volume Filter")
-volLen = input.int(20, "Volume SMA", minval=1)
+volLen = input.int(20, "Volume SMA Length", minval=1)
+volMultiplier = input.float(1.0, "Volume Multiplier", minval=0.1, step=0.1)
 
-hh = ta.highest(high[1], lookback)
-ll = ta.lowest(low[1], lookback)
-volOk = not useVolFilter or volume > ta.sma(volume, volLen)
+highestHigh = ta.highest(high[1], lookback)
+lowestLow = ta.lowest(low[1], lookback)
+volBase = ta.sma(volume, volLen)
+volOk = not useVolFilter or volume > (volBase * volMultiplier)
 
-longBreakout = close > hh and volOk
-shortBreakout = close < ll and volOk
+buySignal = close > highestHigh and volOk
+sellSignal = close < lowestLow and volOk
 
-plot(hh, "Range High", color=color.new(color.green, 70))
-plot(ll, "Range Low", color=color.new(color.red, 70))
-plotshape(longBreakout, title="Long Breakout", style=shape.triangleup, location=location.belowbar, color=color.new(color.green, 0), size=size.tiny, text="L")
-plotshape(shortBreakout, title="Short Breakout", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0), size=size.tiny, text="S")
+plot(highestHigh, "Highest High", color=color.new(color.green, 70))
+plot(lowestLow, "Lowest Low", color=color.new(color.red, 70))
+plotshape(buySignal, title="Buy Breakout", style=shape.arrowup, location=location.belowbar, color=color.new(color.green, 0), size=size.small, text="BUY")
+plotshape(sellSignal, title="Sell Breakdown", style=shape.arrowdown, location=location.abovebar, color=color.new(color.red, 0), size=size.small, text="SELL")
+
+alertcondition(buySignal, title="Breakout Buy", message="Breakout Signal System: Buy breakout on {{ticker}} at {{close}}")
+alertcondition(sellSignal, title="Breakout Sell", message="Breakout Signal System: Sell breakdown on {{ticker}} at {{close}}")

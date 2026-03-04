@@ -2,23 +2,23 @@
 strategy("RSI Reversal Strategy", overlay=true, initial_capital=10000, pyramiding=0)
 
 rsiLen = input.int(14, "RSI Length", minval=2)
-oversold = input.int(30, "Oversold", minval=1, maxval=50)
-overbought = input.int(70, "Overbought", minval=50, maxval=99)
-exitMid = input.int(50, "Exit RSI Level", minval=1, maxval=99)
+oversold = input.int(30, "Oversold Entry Level", minval=1, maxval=50)
+overbought = input.int(70, "Overbought Exit Level", minval=50, maxval=99)
+stopPct = input.float(1.0, "Stop Loss %", minval=0.1, step=0.1) / 100.0
 
 rsi = ta.rsi(close, rsiLen)
-
 longEntry = ta.crossover(rsi, oversold)
-shortEntry = ta.crossunder(rsi, overbought)
+longExit = ta.crossover(rsi, overbought)
 
 if longEntry
     strategy.entry("Long", strategy.long)
-if shortEntry
-    strategy.entry("Short", strategy.short)
 
-if strategy.position_size > 0 and rsi > exitMid
-    strategy.close("Long")
-if strategy.position_size < 0 and rsi < exitMid
-    strategy.close("Short")
+if strategy.position_size > 0
+    longStop = strategy.position_avg_price * (1 - stopPct)
+    strategy.exit("Long Stop", "Long", stop=longStop)
 
-plot(rsi, "RSI", color=color.new(color.blue, 0), display=display.none)
+if strategy.position_size > 0 and longExit
+    strategy.close("Long", comment="RSI Overbought Exit")
+
+plotshape(longEntry, title="Long Entry", style=shape.labelup, text="BUY", location=location.belowbar, color=color.new(color.green, 0), textcolor=color.white)
+plotshape(longExit, title="Long Exit", style=shape.labeldown, text="EXIT", location=location.abovebar, color=color.new(color.red, 0), textcolor=color.white)

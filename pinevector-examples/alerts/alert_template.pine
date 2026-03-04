@@ -1,5 +1,5 @@
 //@version=5
-indicator("Alert Template", overlay=true)
+indicator("TradingView Alert Template", overlay=true)
 
 fastLen = input.int(9, "Fast MA", minval=1)
 slowLen = input.int(21, "Slow MA", minval=1)
@@ -7,11 +7,22 @@ slowLen = input.int(21, "Slow MA", minval=1)
 fast = ta.sma(close, fastLen)
 slow = ta.sma(close, slowLen)
 
-bullCross = ta.crossover(fast, slow)
-bearCross = ta.crossunder(fast, slow)
+buySignal = ta.crossover(fast, slow)
+sellSignal = ta.crossunder(fast, slow)
 
-alertcondition(bullCross, title="Bullish Cross", message="Bullish cross on {{ticker}} at {{close}}")
-alertcondition(bearCross, title="Bearish Cross", message="Bearish cross on {{ticker}} at {{close}}")
+alertcondition(
+    buySignal,
+    title="Buy Alert",
+    message='{"event":"buy","ticker":"{{ticker}}","price":"{{close}}","time":"{{time}}"}'
+)
 
-plot(fast, "Fast MA", color=color.new(color.teal, 0))
-plot(slow, "Slow MA", color=color.new(color.orange, 0))
+alertcondition(
+    sellSignal,
+    title="Sell Alert",
+    message='{"event":"sell","ticker":"{{ticker}}","price":"{{close}}","time":"{{time}}"}'
+)
+
+plot(fast, "Fast MA", color=color.new(color.teal, 0), linewidth=2)
+plot(slow, "Slow MA", color=color.new(color.orange, 0), linewidth=2)
+plotshape(buySignal, title="Buy", style=shape.triangleup, location=location.belowbar, color=color.new(color.green, 0), size=size.tiny)
+plotshape(sellSignal, title="Sell", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0), size=size.tiny)
