@@ -1,0 +1,27 @@
+//@version=5
+strategy("EMA Crossover Strategy", overlay=true, initial_capital=10000, pyramiding=0)
+
+fastLen = input.int(20, "Fast EMA", minval=1)
+slowLen = input.int(50, "Slow EMA", minval=1)
+stopPct = input.float(1.0, "Stop Loss %", minval=0.1) / 100.0
+targetPct = input.float(2.0, "Take Profit %", minval=0.1) / 100.0
+
+emaFast = ta.ema(close, fastLen)
+emaSlow = ta.ema(close, slowLen)
+
+longEntry = ta.crossover(emaFast, emaSlow)
+shortEntry = ta.crossunder(emaFast, emaSlow)
+
+if longEntry
+    strategy.entry("Long", strategy.long)
+if shortEntry
+    strategy.entry("Short", strategy.short)
+
+if strategy.position_size > 0
+    strategy.exit("Long Exit", "Long", stop=strategy.position_avg_price * (1 - stopPct), limit=strategy.position_avg_price * (1 + targetPct))
+
+if strategy.position_size < 0
+    strategy.exit("Short Exit", "Short", stop=strategy.position_avg_price * (1 + stopPct), limit=strategy.position_avg_price * (1 - targetPct))
+
+plot(emaFast, "Fast EMA", color=color.teal)
+plot(emaSlow, "Slow EMA", color=color.orange)

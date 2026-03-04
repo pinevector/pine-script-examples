@@ -1,0 +1,17 @@
+//@version=5
+indicator("Alert Template", overlay=true)
+
+fastLen = input.int(9, "Fast MA", minval=1)
+slowLen = input.int(21, "Slow MA", minval=1)
+
+fast = ta.sma(close, fastLen)
+slow = ta.sma(close, slowLen)
+
+bullCross = ta.crossover(fast, slow)
+bearCross = ta.crossunder(fast, slow)
+
+alertcondition(bullCross, title="Bullish Cross", message="Bullish cross on {{ticker}} at {{close}}")
+alertcondition(bearCross, title="Bearish Cross", message="Bearish cross on {{ticker}} at {{close}}")
+
+plot(fast, "Fast MA", color=color.new(color.teal, 0))
+plot(slow, "Slow MA", color=color.new(color.orange, 0))

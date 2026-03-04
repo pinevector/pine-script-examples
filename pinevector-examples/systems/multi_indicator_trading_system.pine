@@ -1,0 +1,27 @@
+//@version=5
+strategy("Multi Indicator Trading System", overlay=true, initial_capital=10000, pyramiding=0)
+
+emaLen = input.int(50, "Trend EMA", minval=1)
+rsiLen = input.int(14, "RSI Length", minval=2)
+macdFast = input.int(12, "MACD Fast", minval=1)
+macdSlow = input.int(26, "MACD Slow", minval=2)
+macdSignal = input.int(9, "MACD Signal", minval=1)
+
+emaTrend = ta.ema(close, emaLen)
+rsi = ta.rsi(close, rsiLen)
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+
+trendUp = close > emaTrend
+trendDown = close < emaTrend
+momentumUp = rsi > 50 and macdLine > signalLine
+momentumDown = rsi < 50 and macdLine < signalLine
+
+longSignal = trendUp and momentumUp
+shortSignal = trendDown and momentumDown
+
+if longSignal and strategy.position_size <= 0
+    strategy.entry("Long", strategy.long)
+if shortSignal and strategy.position_size >= 0
+    strategy.entry("Short", strategy.short)
+
+plot(emaTrend, "Trend EMA", color=color.new(color.yellow, 0), linewidth=2)

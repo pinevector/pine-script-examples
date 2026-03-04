@@ -1,0 +1,8 @@
+//@version=5
+indicator("Session Filter", overlay=true)
+
+sessionInput = input.session("0930-1600", "Active Session")
+inSession = not na(time(timeframe.period, sessionInput))
+
+bgcolor(inSession ? color.new(color.green, 92) : color.new(color.gray, 95))
+plotchar(inSession, title="In Session", char="S", location=location.bottom, color=color.new(color.green, 0), size=size.tiny)

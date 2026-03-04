@@ -1,0 +1,15 @@
+//@version=5
+indicator("EMA Trend Indicator", overlay=true)
+
+fastLen = input.int(21, "Fast EMA", minval=1)
+slowLen = input.int(55, "Slow EMA", minval=1)
+
+emaFast = ta.ema(close, fastLen)
+emaSlow = ta.ema(close, slowLen)
+
+trendUp = emaFast > emaSlow
+trendDn = emaFast < emaSlow
+
+plot(emaFast, "EMA Fast", color=color.new(color.teal, 0), linewidth=2)
+plot(emaSlow, "EMA Slow", color=color.new(color.orange, 0), linewidth=2)
+bgcolor(trendUp ? color.new(color.green, 92) : trendDn ? color.new(color.red, 92) : na)

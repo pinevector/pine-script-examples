@@ -1,0 +1,36 @@
+//@version=5
+indicator("RSI Divergence Indicator", overlay=true, max_labels_count=200)
+
+rsiLen = input.int(14, "RSI Length", minval=2)
+pivotLeft = input.int(5, "Pivot Left", minval=1)
+pivotRight = input.int(5, "Pivot Right", minval=1)
+
+rsi = ta.rsi(close, rsiLen)
+
+pLowPrice = ta.pivotlow(low, pivotLeft, pivotRight)
+pLowRsi = ta.pivotlow(rsi, pivotLeft, pivotRight)
+pHighPrice = ta.pivothigh(high, pivotLeft, pivotRight)
+pHighRsi = ta.pivothigh(rsi, pivotLeft, pivotRight)
+
+var float prevLowPrice = na
+var float prevLowRsi = na
+var float prevHighPrice = na
+var float prevHighRsi = na
+
+bullDiv = false
+bearDiv = false
+
+if not na(pLowPrice) and not na(pLowRsi)
+    if not na(prevLowPrice) and not na(prevLowRsi)
+        bullDiv := pLowPrice < prevLowPrice and pLowRsi > prevLowRsi
+    prevLowPrice := pLowPrice
+    prevLowRsi := pLowRsi
+
+if not na(pHighPrice) and not na(pHighRsi)
+    if not na(prevHighPrice) and not na(prevHighRsi)
+        bearDiv := pHighPrice > prevHighPrice and pHighRsi < prevHighRsi
+    prevHighPrice := pHighPrice
+    prevHighRsi := pHighRsi
+
+plotshape(bullDiv, title="Bullish Divergence", style=shape.labelup, text="Bull Div", color=color.new(color.green, 0), location=location.belowbar, textcolor=color.white)
+plotshape(bearDiv, title="Bearish Divergence", style=shape.labeldown, text="Bear Div", color=color.new(color.red, 0), location=location.abovebar, textcolor=color.white)

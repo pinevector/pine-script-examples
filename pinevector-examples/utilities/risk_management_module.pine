@@ -1,0 +1,14 @@
+//@version=5
+indicator("Risk Management Module", overlay=false)
+
+accountSize = input.float(10000, "Account Size", minval=100)
+riskPct = input.float(1.0, "Risk % Per Trade", minval=0.1)
+entryPrice = input.float(100.0, "Entry Price", minval=0.0001)
+stopPrice = input.float(98.0, "Stop Price", minval=0.0001)
+
+riskAmount = accountSize * (riskPct / 100.0)
+perUnitRisk = math.abs(entryPrice - stopPrice)
+positionSize = perUnitRisk > 0 ? riskAmount / perUnitRisk : na
+
+plot(riskAmount, "Risk Amount", color=color.new(color.red, 0))
+plot(positionSize, "Position Size", color=color.new(color.green, 0))

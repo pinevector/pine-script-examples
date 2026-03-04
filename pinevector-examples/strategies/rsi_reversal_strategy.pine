@@ -1,0 +1,24 @@
+//@version=5
+strategy("RSI Reversal Strategy", overlay=true, initial_capital=10000, pyramiding=0)
+
+rsiLen = input.int(14, "RSI Length", minval=2)
+oversold = input.int(30, "Oversold", minval=1, maxval=50)
+overbought = input.int(70, "Overbought", minval=50, maxval=99)
+exitMid = input.int(50, "Exit RSI Level", minval=1, maxval=99)
+
+rsi = ta.rsi(close, rsiLen)
+
+longEntry = ta.crossover(rsi, oversold)
+shortEntry = ta.crossunder(rsi, overbought)
+
+if longEntry
+    strategy.entry("Long", strategy.long)
+if shortEntry
+    strategy.entry("Short", strategy.short)
+
+if strategy.position_size > 0 and rsi > exitMid
+    strategy.close("Long")
+if strategy.position_size < 0 and rsi < exitMid
+    strategy.close("Short")
+
+plot(rsi, "RSI", color=color.new(color.blue, 0), display=display.none)
