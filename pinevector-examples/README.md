@@ -29,3 +29,16 @@ alerts
 Examples of implementing TradingView alert conditions.
 
 These scripts are designed as educational examples and starting points for building custom Pine Script systems.
+
+---
+
+## EMA Trend Indicator
+
+This example demonstrates a simple trend-following indicator using fast and slow exponential moving averages.
+
+### Features
+
+- Trend detection using EMA crossover
+- Buy/Sell signal markers
+- Configurable inputs
+- TradingView alert conditions

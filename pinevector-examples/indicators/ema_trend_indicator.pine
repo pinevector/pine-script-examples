@@ -9,7 +9,15 @@ emaSlow = ta.ema(close, slowLen)
 
 trendUp = emaFast > emaSlow
 trendDn = emaFast < emaSlow
+buySignal = ta.crossover(emaFast, emaSlow)
+sellSignal = ta.crossunder(emaFast, emaSlow)
 
 plot(emaFast, "EMA Fast", color=color.new(color.teal, 0), linewidth=2)
 plot(emaSlow, "EMA Slow", color=color.new(color.orange, 0), linewidth=2)
 bgcolor(trendUp ? color.new(color.green, 92) : trendDn ? color.new(color.red, 92) : na)
+
+plotshape(buySignal, title="Buy Signal", style=shape.triangleup, location=location.belowbar, size=size.small, color=color.new(color.green, 0), text="BUY", textcolor=color.white)
+plotshape(sellSignal, title="Sell Signal", style=shape.triangledown, location=location.abovebar, size=size.small, color=color.new(color.red, 0), text="SELL", textcolor=color.white)
+
+alertcondition(buySignal, title="EMA Bullish Crossover", message="EMA Trend Indicator: BUY signal on {{ticker}} at {{close}}")
+alertcondition(sellSignal, title="EMA Bearish Crossover", message="EMA Trend Indicator: SELL signal on {{ticker}} at {{close}}")
